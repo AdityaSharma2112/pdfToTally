@@ -1,0 +1,66 @@
+import os
+import xml.etree.ElementTree as ET
+from bank_parser import SBIBankParser
+from tally_xml_generator import TallyXMLGenerator
+
+# SBI Bank Statement text snippet from the user's prompt
+sbi_sample_text = """STATEMENT OF ACCOUNT
+GUPTA BUILDING MATERIAL AND MARBEL
+VINOBA NAGAR,SALEMPUR ROAD
+Mahamaya Nagar SADABAD
+STATE BANK OF INDIA SADABAD
+Branch Code: 590 | IFSC Code: SBIN0000590 | Account No: 31666960087
+Statement From: 01-04-2025 To 31-03-2026
+
+BROUGHT FORWARD 3,469.89CR
+02-04-2025 02-04-2025 DEP TFR IMPS/509206919043/CNB XX948-MANEESH /IMPS 0098313162099 AT 00590 SADABAD 5,00,000.00 5,03,469.89CR
+02-04-2025 02-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN525092525881 190909 2,30,023.60 2,73,446.29CR
+02-04-2025 02-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN525092541172 190912 1,00,004.72 1,73,441.57CR
+02-04-2025 02-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN525092558195 190911 1,50,023.60 23,417.97CR
+08-04-2025 08-04-2025 DEP TFR IMPS/509811466419/pnb XX314-MANISH B/IMPS 0098308162095 AT 00590 SADABAD 59,700.00 83,117.97CR
+08-04-2025 08-04-2025 DEP TFR UPI/CR/946025670686/Shar ad K/SBIN/guptayoges/Paym 0097734162099 AT 00590 SADABAD 5,000.00 88,117.97CR
+08-04-2025 08-04-2025 DEP TFR UPI/CR/730138906317/SHA RAD K/UTIB/7906066276/Paym 0097734162099 AT 00590 SADABAD 5,000.00 93,117.97CR
+08-04-2025 08-04-2025 DEP TFR UPI/CR/993207474680/ARS HAD /SBIN/warsiarsha/Paym 0097734162099 AT 00590 SADABAD 10,000.00 1,03,117.97CR
+08-04-2025 08-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN325098142530 190913 1,00,004.72 3,113.25CR
+11-04-2025 11-04-2025 DEP TFR RTGS UTR NO: CNRBR5202504115438265 3 0099855044301 AT 00590 SADABAD 8,00,000.00 8,03,113.25CR
+11-04-2025 11-04-2025 DEP TFR RTGS UTR NO: CNRBR5202504115441066 3 0098337044306 AT 00590 SADABAD 5,00,000.00 13,03,113.25CR
+11-04-2025 11-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN125101714029 190915 1,50,014.16 11,53,099.09CR
+11-04-2025 11-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN125101714167 190916 2,00,014.16 9,53,084.93CR
+11-04-2025 11-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN125101714350 190917 1,00,004.72 8,53,080.21CR
+11-04-2025 11-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN125101717516 190914 4,50,023.60 4,03,056.61CR
+16-04-2025 16-04-2025 CAS CHQ XFER WD CHEQUE TRANSFER TO 0040270403922 OF ITILE LLP AT 00590 SADABAD 190921 1,00,000.00 3,03,056.61CR
+16-04-2025 16-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN425106624838 190919 1,00,004.72 2,03,051.89CR
+16-04-2025 16-04-2025 REMT THRU CHQ NEFT UTR NO: SBIN425106628189 190918 2,00,014.16 3,037.73CR
+17-04-2025 17-04-2025 SI FAIL 295.00 2,742.73CR
+"""
+
+def test():
+    parser = SBIBankParser()
+    transactions = parser._parse_from_text(sbi_sample_text)
+    print(f"Parsed {len(transactions)} transactions successfully.")
+
+    for i, tx in enumerate(transactions[:5], 1):
+        print(f"[{i}] Date: {tx['date']} | Cheque: {tx['cheque_no']} | Debit: {tx['debit']} | Credit: {tx['credit']} | Narration: {tx['narration'][:50]}")
+
+    generator = TallyXMLGenerator(
+        company_name="GUPTA BUILDING MATERIAL AND MARBEL",
+        bank_ledger="State Bank of India",
+        default_counter_ledger="SUSPENS"
+    )
+
+    xml_out = generator.generate_xml(transactions)
+    out_path = "output_sbi_tally.xml"
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(xml_out)
+
+    print(f"\nGenerated Tally XML saved to {out_path} ({len(xml_out)} bytes)")
+    
+    # Validate XML structure
+    root = ET.fromstring(xml_out)
+    vouchers = root.findall(".//VOUCHER")
+    print(f"Total VOUCHER elements generated: {len(vouchers)}")
+    assert len(vouchers) == len(transactions), "Voucher count mismatch!"
+    print("XML Structure Validation PASSED!")
+
+if __name__ == "__main__":
+    test()
